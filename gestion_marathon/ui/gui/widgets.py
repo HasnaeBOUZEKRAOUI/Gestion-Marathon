@@ -1,4 +1,4 @@
-"""Widgets réutilisables : tableau de données, liste déroulante d'entités."""
+"""Widgets réutilisables : cartes, tuiles de statistiques, tableau, liste d'entités."""
 
 import tkinter as tk
 from dataclasses import dataclass
@@ -6,6 +6,55 @@ from tkinter import ttk
 from typing import Callable, Optional, Sequence, Tuple
 
 from .theme import COULEURS
+
+_STYLES_ETIQUETTE = {
+    "normal": "Carte.TLabel",
+    "gras": "CarteGras.TLabel",
+    "discret": "CarteDiscret.TLabel",
+    "titre": "CarteTitre.TLabel",
+    "kpi": "Kpi.TLabel",
+}
+
+
+def etiquette(parent, texte: str = "", role: str = "normal", **options) -> ttk.Label:
+    """Étiquette à fond blanc, à utiliser à l'intérieur d'une ``Carte``."""
+    return ttk.Label(parent, text=texte, style=_STYLES_ETIQUETTE[role], **options)
+
+
+class Carte(tk.Frame):
+    """Bloc blanc à fine bordure, avec un titre facultatif.
+
+    Le contenu se place dans ``carte.contenu`` (et non dans la carte elle-même).
+    """
+
+    def __init__(self, parent, titre: str = "", rembourrage: int = 18):
+        super().__init__(parent, background=COULEURS["bordure"], padx=1, pady=1)
+        self.corps = ttk.Frame(self, style="Carte.TFrame", padding=rembourrage)
+        self.corps.pack(fill="both", expand=True)
+        if titre:
+            etiquette(self.corps, titre, "titre").pack(anchor="w", pady=(0, 12))
+        self.contenu = ttk.Frame(self.corps, style="Carte.TFrame")
+        self.contenu.pack(fill="both", expand=True)
+
+
+class TuileStat(Carte):
+    """Petite carte affichant un chiffre clé, avec un liseré de couleur."""
+
+    def __init__(self, parent, libelle: str, couleur: Optional[str] = None):
+        super().__init__(parent, rembourrage=16)
+        tk.Frame(self, height=3, background=couleur or COULEURS["accent"]).pack(
+            side="top", fill="x", before=self.corps
+        )
+        self._valeur = tk.StringVar(value="—")
+        self._detail = tk.StringVar()
+        etiquette(self.contenu, libelle, "discret").pack(anchor="w")
+        etiquette(self.contenu, role="kpi", textvariable=self._valeur).pack(anchor="w", pady=(2, 0))
+        etiquette(self.contenu, role="discret", textvariable=self._detail, wraplength=150,
+                  justify="left").pack(anchor="w")
+
+    def definir(self, valeur, detail: str = "") -> None:
+        self._valeur.set(str(valeur))
+        self._detail.set(detail)
 
 
 @dataclass(frozen=True)
@@ -22,8 +71,8 @@ class Colonne:
 class TableauDonnees(ttk.Frame):
     """Treeview avec barres de défilement, lignes alternées et rappel de sélection.
 
-    Chaque ligne est un tuple ``(identifiant, valeurs[, etiquette])`` ;
-    l'étiquette optionnelle sert à colorer la ligne (voir ``etiquettes``).
+    Chaque ligne est un tuple ``(identifiant, valeurs[, etiquette])`` ; l'étiquette
+    optionnelle colore la ligne (voir ``etiquettes``) et remplace la rayure alternée.
     """
 
     def __init__(
@@ -34,7 +83,7 @@ class TableauDonnees(ttk.Frame):
         on_select: Optional[Callable[[Optional[str]], None]] = None,
         etiquettes: Optional[dict] = None,
     ):
-        super().__init__(parent)
+        super().__init__(parent, style="Carte.TFrame")
         self._on_select = on_select
 
         self.arbre = ttk.Treeview(
@@ -45,7 +94,7 @@ class TableauDonnees(ttk.Frame):
             height=hauteur,
         )
         for colonne in colonnes:
-            self.arbre.heading(colonne.cle, text=colonne.titre)
+            self.arbre.heading(colonne.cle, text=colonne.titre, anchor=colonne.ancre)
             self.arbre.column(
                 colonne.cle,
                 width=colonne.largeur,
@@ -60,11 +109,9 @@ class TableauDonnees(ttk.Frame):
             self.arbre.tag_configure(nom, background=couleur)
 
         barre_v = ttk.Scrollbar(self, orient="vertical", command=self.arbre.yview)
-        barre_h = ttk.Scrollbar(self, orient="horizontal", command=self.arbre.xview)
-        self.arbre.configure(yscrollcommand=barre_v.set, xscrollcommand=barre_h.set)
+        self.arbre.configure(yscrollcommand=barre_v.set)
         self.arbre.grid(row=0, column=0, sticky="nsew")
         barre_v.grid(row=0, column=1, sticky="ns")
-        barre_h.grid(row=1, column=0, sticky="ew")
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
 
@@ -138,16 +185,15 @@ class ListeEntites(ttk.Combobox):
 
 
 def placer_champ(parent, ligne: int, colonne: int, libelle: str, widget, etendu: int = 1) -> None:
-    """Place un libellé et son champ côte à côte dans une grille."""
-    ttk.Label(parent, text=libelle).grid(
-        row=ligne, column=colonne, sticky="w", padx=(0, 6), pady=4
-    )
-    widget.grid(row=ligne, column=colonne + 1, columnspan=etendu, sticky="ew", padx=(0, 16), pady=4)
+    """Place un libellé (fond blanc) et son champ côte à côte dans une grille."""
+    etiquette(parent, libelle).grid(row=ligne, column=colonne, sticky="w", padx=(0, 8), pady=5)
+    widget.grid(row=ligne, column=colonne + 1, columnspan=etendu, sticky="ew",
+                padx=(0, 20), pady=5)
 
 
 def zone_boutons(parent) -> ttk.Frame:
-    """Barre horizontale destinée à accueillir des boutons."""
-    return ttk.Frame(parent)
+    """Barre horizontale (fond blanc) destinée à accueillir des boutons."""
+    return ttk.Frame(parent, style="Carte.TFrame")
 
 
 def desactiver(*widgets: tk.Widget) -> None:

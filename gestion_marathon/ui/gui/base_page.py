@@ -1,4 +1,4 @@
-"""Classe de base des onglets et gestion centralisée des erreurs."""
+"""Classe de base des pages et gestion centralisée des erreurs."""
 
 import functools
 import logging
@@ -31,13 +31,19 @@ def gerer_erreurs(methode):
     return enveloppe
 
 
-class BaseTab(ttk.Frame):
-    """Onglet de l'application : reçoit l'``Application`` et sait se rafraîchir."""
+class BasePage(ttk.Frame):
+    """Page de l'application, affichée dans la zone de droite du menu latéral.
+
+    Les sous-classes renseignent ``TITRE``, ``SOUS_TITRE`` et ``ICONE`` (utilisés par
+    le menu et l'en-tête) et implémentent ``refresh``.
+    """
 
     TITRE = ""
+    SOUS_TITRE = ""
+    ICONE = ""
 
     def __init__(self, parent, app: Application):
-        super().__init__(parent, padding=12)
+        super().__init__(parent)
         self.app = app
 
     def refresh(self) -> None:

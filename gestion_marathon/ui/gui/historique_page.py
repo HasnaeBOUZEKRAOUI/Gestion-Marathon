@@ -1,12 +1,11 @@
-"""Onglet « Historique » : toutes les participations d'un coureur."""
+"""Page « Historique » : toutes les participations d'un coureur."""
 
-import tkinter as tk
 from tkinter import ttk
 
 from ...models import Statut
-from .base_tab import BaseTab, gerer_erreurs
+from .base_page import BasePage, gerer_erreurs
 from .theme import COULEURS
-from .widgets import Colonne, ListeEntites, TableauDonnees
+from .widgets import Carte, Colonne, ListeEntites, TableauDonnees, TuileStat
 
 _ETIQUETTES_STATUT = {
     Statut.TERMINE.value: "termine",
@@ -15,8 +14,10 @@ _ETIQUETTES_STATUT = {
 }
 
 
-class HistoriqueTab(BaseTab):
+class HistoriquePage(BasePage):
     TITRE = "Historique"
+    SOUS_TITRE = "Le parcours sportif d'un coureur, édition après édition."
+    ICONE = "↺"
 
     COLONNES = (
         Colonne("marathon", "Marathon", 240, extensible=True),
@@ -29,24 +30,36 @@ class HistoriqueTab(BaseTab):
 
     def __init__(self, parent, app):
         super().__init__(parent, app)
-        self._var_resume = tk.StringVar()
         self._construire()
         self.refresh()
 
     def _construire(self) -> None:
         haut = ttk.Frame(self)
         haut.pack(fill="x")
-        ttk.Label(haut, text="Coureur :", style="Gras.TLabel").pack(side="left")
-        self.liste_coureurs = ListeEntites(haut, largeur=48)
-        self.liste_coureurs.pack(side="left", padx=8)
+        ttk.Label(haut, text="Coureur", style="Gras.TLabel").pack(side="left")
+        self.liste_coureurs = ListeEntites(haut, largeur=50)
+        self.liste_coureurs.pack(side="left", padx=10)
         self.liste_coureurs.bind("<<ComboboxSelected>>", lambda _e: self._recharger())
 
-        resume = ttk.LabelFrame(self, text="Résumé", padding=10)
-        resume.pack(fill="x", pady=(12, 0))
-        ttk.Label(resume, textvariable=self._var_resume, justify="left").pack(anchor="w")
+        rang = ttk.Frame(self)
+        rang.pack(fill="x", pady=(14, 0))
+        rang.columnconfigure((0, 1, 2), weight=1, uniform="tuile")
+        modeles = (
+            ("participations", "Participations", COULEURS["accent"]),
+            ("terminees", "Courses terminées", COULEURS["vert"]),
+            ("record", "Meilleur temps personnel", COULEURS["violet"]),
+        )
+        self.tuiles = {}
+        for colonne, (cle, libelle, couleur) in enumerate(modeles):
+            tuile = TuileStat(rang, libelle, couleur)
+            tuile.grid(row=0, column=colonne, sticky="nsew",
+                       padx=(0 if colonne == 0 else 6, 0 if colonne == 2 else 6))
+            self.tuiles[cle] = tuile
 
+        liste = Carte(self, "Courses du coureur")
+        liste.pack(fill="both", expand=True, pady=(16, 0))
         self.tableau = TableauDonnees(
-            self,
+            liste.contenu,
             self.COLONNES,
             etiquettes={
                 "termine": COULEURS["termine"],
@@ -54,7 +67,7 @@ class HistoriqueTab(BaseTab):
                 "non_partant": COULEURS["non_partant"],
             },
         )
-        self.tableau.pack(fill="both", expand=True, pady=(12, 0))
+        self.tableau.pack(fill="both", expand=True)
 
     def refresh(self) -> None:
         self.liste_coureurs.charger(
@@ -67,7 +80,8 @@ class HistoriqueTab(BaseTab):
         id_coureur = self.liste_coureurs.identifiant()
         if id_coureur is None:
             self.tableau.charger([])
-            self._var_resume.set("Aucun coureur enregistré.")
+            for tuile in self.tuiles.values():
+                tuile.definir("—")
             return
 
         historique = self.app.participations.historique_coureur(id_coureur)
@@ -89,9 +103,7 @@ class HistoriqueTab(BaseTab):
             ]
         )
         temps = [h.temps_final for h in historique if h.temps_final]
-        self._var_resume.set(
-            f"Participations : {len(historique)}   |   "
-            f"Courses terminées : {len(temps)}   |   "
-            f"Meilleur temps personnel : {min(temps) if temps else '—'}"
-        )
+        self.tuiles["participations"].definir(len(historique))
+        self.tuiles["terminees"].definir(len(temps))
+        self.tuiles["record"].definir(min(temps) if temps else "—")
         self.notifier(f"{len(historique)} participation(s) pour ce coureur.")

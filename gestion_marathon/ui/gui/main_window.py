@@ -1,4 +1,4 @@
-"""Fenêtre principale : menu, onglets et barre d'état."""
+"""Fenêtre principale : barre latérale verticale, en-tête de page et zone de contenu."""
 
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -7,80 +7,116 @@ from typing import List
 from ... import __version__
 from ...app import Application
 from ...demo import charger_demo
-from .base_tab import BaseTab
-from .classement_tab import ClassementTab
-from .coureurs_tab import CoureursTab
-from .historique_tab import HistoriqueTab
-from .marathons_tab import MarathonsTab
-from .participations_tab import ParticipationsTab
-from .theme import appliquer_theme
+from .base_page import BasePage
+from .classement_page import ClassementPage
+from .coureurs_page import CoureursPage
+from .dashboard_page import TableauBordPage
+from .historique_page import HistoriquePage
+from .marathons_page import MarathonsPage
+from .participations_page import ParticipationsPage
+from .sidebar import BarreLaterale
+from .theme import COULEURS, appliquer_theme
 
 TITRE_APPLICATION = "Gestion de Marathon"
 
 
 class MainWindow(tk.Tk):
-    """Fenêtre racine ; reçoit l'``Application`` (services métier) en paramètre."""
+    """Fenêtre racine ; reçoit l'``Application`` (services métier) en paramètre.
 
-    ONGLETS = (CoureursTab, MarathonsTab, ParticipationsTab, ClassementTab, HistoriqueTab)
+    Disposition : barre latérale (navigation) à gauche ; à droite, un en-tête
+    (titre + sous-titre de la page), la page courante et une barre d'état.
+    """
+
+    PAGES = (
+        TableauBordPage,
+        CoureursPage,
+        MarathonsPage,
+        ParticipationsPage,
+        ClassementPage,
+        HistoriquePage,
+    )
 
     def __init__(self, app: Application):
         super().__init__()
         self.app = app
-        self.title(TITRE_APPLICATION)
-        self.geometry("1050x720")
-        self.minsize(900, 620)
-        appliquer_theme(self)
+        self.title(f"{TITRE_APPLICATION} — v{__version__}")
+        self.geometry("1240x800")
+        self.minsize(1100, 700)
+        self._polices = appliquer_theme(self)
 
+        self._var_titre = tk.StringVar()
+        self._var_sous_titre = tk.StringVar()
         self._var_statut = tk.StringVar(value="Prêt.")
-        self._onglets: List[BaseTab] = []
-        self._construire_menu()
-        self._construire_interface()
+        self._pages: List[BasePage] = []
+        self._index = 0
+
+        self._construire()
         self.bind("<F5>", lambda _e: self.actualiser())
+        for position in range(len(self.PAGES)):  # Ctrl+1 ... Ctrl+6
+            self.bind(f"<Control-Key-{position + 1}>", lambda _e, i=position: self.afficher(i))
+        self.afficher(0)
 
     # --------------------------------------------------------------- construction
-    def _construire_menu(self) -> None:
-        barre = tk.Menu(self)
-        fichier = tk.Menu(barre, tearoff=False)
-        fichier.add_command(label="Charger des données de démonstration",
-                            command=self.charger_demo)
-        fichier.add_command(label="Actualiser   (F5)", command=self.actualiser)
-        fichier.add_separator()
-        fichier.add_command(label="Quitter", command=self.destroy)
-        barre.add_cascade(label="Fichier", menu=fichier)
+    def _construire(self) -> None:
+        self.columnconfigure(1, weight=1)
+        self.rowconfigure(0, weight=1)
 
-        aide = tk.Menu(barre, tearoff=False)
-        aide.add_command(label="À propos", command=self._a_propos)
-        barre.add_cascade(label="Aide", menu=aide)
-        self.configure(menu=barre)
+        self.barre = BarreLaterale(
+            self,
+            self._polices,
+            pages=[(page.ICONE, page.TITRE) for page in self.PAGES],
+            actions=[
+                ("↻", "Actualiser (F5)", self.actualiser),
+                ("✚", "Données de démo", self.charger_demo),
+                ("ⓘ", "À propos", self._a_propos),
+            ],
+            version=__version__,
+            on_page=self.afficher,
+        )
+        self.barre.grid(row=0, column=0, sticky="ns")
 
-    def _construire_interface(self) -> None:
-        entete = ttk.Frame(self, padding=(16, 12, 16, 0))
-        entete.pack(fill="x")
-        ttk.Label(entete, text=TITRE_APPLICATION, style="Titre.TLabel").pack(side="left")
-        ttk.Label(entete, text=f"Base : {self.app.db.chemin}", style="Discret.TLabel").pack(
-            side="right"
+        contenu = tk.Frame(self, background=COULEURS["fond"])
+        contenu.grid(row=0, column=1, sticky="nsew")
+
+        entete = ttk.Frame(contenu)
+        entete.pack(fill="x", padx=32, pady=(26, 16))
+        ttk.Label(entete, textvariable=self._var_titre, style="Titre.TLabel").pack(anchor="w")
+        ttk.Label(entete, textvariable=self._var_sous_titre, style="Discret.TLabel").pack(
+            anchor="w", pady=(2, 0)
         )
 
-        ttk.Label(self, textvariable=self._var_statut, style="Statut.TLabel", anchor="w").pack(
-            side="bottom", fill="x"
+        ttk.Label(contenu, textvariable=self._var_statut, style="Statut.TLabel").pack(
+            side="bottom", fill="x", padx=32, pady=(4, 10)
         )
 
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill="both", expand=True, padx=16, pady=12)
-        for classe in self.ONGLETS:
-            onglet = classe(self.notebook, self.app)
-            self.notebook.add(onglet, text=classe.TITRE)
-            self._onglets.append(onglet)
-        self.notebook.bind("<<NotebookTabChanged>>", self._onglet_change)
+        zone_pages = tk.Frame(contenu, background=COULEURS["fond"])
+        zone_pages.pack(fill="both", expand=True, padx=32)
+        zone_pages.rowconfigure(0, weight=1)
+        zone_pages.columnconfigure(0, weight=1)
+        for classe in self.PAGES:
+            page = classe(zone_pages, self.app)
+            page.grid(row=0, column=0, sticky="nsew")
+            self._pages.append(page)
+
+    # --------------------------------------------------------------- navigation
+    def afficher(self, index: int) -> None:
+        """Affiche la page ``index`` (rafraîchie, car d'autres pages ont pu changer les données)."""
+        page = self._pages[index]
+        self._index = index
+        page.tkraise()
+        self.barre.activer(index)
+        self._var_titre.set(page.TITRE)
+        self._var_sous_titre.set(page.SOUS_TITRE)
+        page.refresh()
 
     # ------------------------------------------------------------------ actions
     def afficher_statut(self, message: str) -> None:
         self._var_statut.set(message)
 
     def actualiser(self) -> None:
-        """Recharge tous les onglets depuis la base."""
-        for onglet in self._onglets:
-            onglet.refresh()
+        """Recharge toutes les pages depuis la base."""
+        for page in self._pages:
+            page.refresh()
         self.afficher_statut("Données actualisées.")
 
     def charger_demo(self) -> None:
@@ -94,14 +130,10 @@ class MainWindow(tk.Tk):
                 parent=self,
             )
 
-    def _onglet_change(self, _event=None) -> None:
-        # Un onglet peut afficher des données modifiées dans un autre : on le rafraîchit.
-        self.nametowidget(self.notebook.select()).refresh()
-
     def _a_propos(self) -> None:
         messagebox.showinfo(
             "À propos",
-            f"{TITRE_APPLICATION} v{__version__}\n\n"
+            f"{TITRE_APPLICATION} — version {__version__}\n\n"
             "Python orienté objet · SQLite3 · Tkinter",
             parent=self,
         )
