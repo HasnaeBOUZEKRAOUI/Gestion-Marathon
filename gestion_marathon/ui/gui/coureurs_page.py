@@ -1,15 +1,26 @@
-"""Onglet « Coureurs » : fiche (ajout / modification / suppression) et recherche."""
+"""Page « Coureurs » : fiche (ajout / modification / suppression) et recherche."""
 
 import tkinter as tk
 from tkinter import ttk
 
 from ...config import SEXES
-from .base_tab import BaseTab, gerer_erreurs
-from .widgets import Colonne, TableauDonnees, activer, desactiver, placer_champ, zone_boutons
+from .base_page import BasePage, gerer_erreurs
+from .widgets import (
+    Carte,
+    Colonne,
+    TableauDonnees,
+    activer,
+    desactiver,
+    etiquette,
+    placer_champ,
+    zone_boutons,
+)
 
 
-class CoureursTab(BaseTab):
+class CoureursPage(BasePage):
     TITRE = "Coureurs"
+    SOUS_TITRE = "Créez et modifiez les fiches des athlètes."
+    ICONE = "☺"
 
     COLONNES = (
         Colonne("id", "ID", 50, "center"),
@@ -33,32 +44,27 @@ class CoureursTab(BaseTab):
 
     # --------------------------------------------------------------- construction
     def _construire(self) -> None:
-        fiche = ttk.LabelFrame(self, text="Fiche coureur", padding=12)
+        fiche = Carte(self, "Fiche coureur")
         fiche.pack(fill="x")
+        f = fiche.contenu
         for colonne in (1, 3):
-            fiche.columnconfigure(colonne, weight=1)
+            f.columnconfigure(colonne, weight=1)
 
-        placer_champ(fiche, 0, 0, "Nom *", ttk.Entry(fiche, textvariable=self._vars["nom"]))
-        placer_champ(fiche, 0, 2, "Prénom *", ttk.Entry(fiche, textvariable=self._vars["prenom"]))
+        placer_champ(f, 0, 0, "Nom *", ttk.Entry(f, textvariable=self._vars["nom"]))
+        placer_champ(f, 0, 2, "Prénom *", ttk.Entry(f, textvariable=self._vars["prenom"]))
         placer_champ(
-            fiche, 1, 0, "Sexe *",
-            ttk.Combobox(fiche, textvariable=self._vars["sexe"], values=SEXES,
+            f, 1, 0, "Sexe *",
+            ttk.Combobox(f, textvariable=self._vars["sexe"], values=SEXES,
                          state="readonly", width=6),
         )
-        placer_champ(
-            fiche, 1, 2, "Naissance",
-            ttk.Entry(fiche, textvariable=self._vars["naissance"]),
+        placer_champ(f, 1, 2, "Naissance", ttk.Entry(f, textvariable=self._vars["naissance"]))
+        placer_champ(f, 2, 0, "Email *", ttk.Entry(f, textvariable=self._vars["email"]), etendu=3)
+        etiquette(f, "Date : AAAA-MM-JJ ou JJ/MM/AAAA (facultative)", "discret").grid(
+            row=3, column=0, columnspan=4, sticky="w", pady=(2, 0)
         )
-        placer_champ(
-            fiche, 2, 0, "Email *",
-            ttk.Entry(fiche, textvariable=self._vars["email"]), etendu=3,
-        )
-        ttk.Label(
-            fiche, text="Date : AAAA-MM-JJ ou JJ/MM/AAAA (facultative)", style="Discret.TLabel"
-        ).grid(row=3, column=0, columnspan=4, sticky="w", pady=(2, 0))
 
-        boutons = zone_boutons(fiche)
-        boutons.grid(row=4, column=0, columnspan=4, sticky="w", pady=(10, 0))
+        boutons = zone_boutons(f)
+        boutons.grid(row=4, column=0, columnspan=4, sticky="w", pady=(12, 0))
         self.btn_ajouter = ttk.Button(
             boutons, text="Ajouter", style="Accent.TButton", command=self.ajouter
         )
@@ -70,17 +76,15 @@ class CoureursTab(BaseTab):
         for bouton in (self.btn_ajouter, self.btn_modifier, self.btn_supprimer, self.btn_nouveau):
             bouton.pack(side="left", padx=(0, 8))
 
-        recherche = ttk.Frame(self)
-        recherche.pack(fill="x", pady=(14, 6))
-        ttk.Label(recherche, text="Rechercher :", style="Gras.TLabel").pack(side="left")
-        ttk.Entry(recherche, textvariable=self._var_recherche, width=34).pack(
-            side="left", padx=8
-        )
-        ttk.Label(recherche, text="(nom, prénom ou email)", style="Discret.TLabel").pack(
-            side="left"
-        )
+        liste = Carte(self, "Liste des coureurs")
+        liste.pack(fill="both", expand=True, pady=(16, 0))
+        recherche = ttk.Frame(liste.contenu, style="Carte.TFrame")
+        recherche.pack(fill="x", pady=(0, 10))
+        etiquette(recherche, "Rechercher", "gras").pack(side="left")
+        ttk.Entry(recherche, textvariable=self._var_recherche, width=34).pack(side="left", padx=10)
+        etiquette(recherche, "nom, prénom ou email", "discret").pack(side="left")
 
-        self.tableau = TableauDonnees(self, self.COLONNES, on_select=self._on_select)
+        self.tableau = TableauDonnees(liste.contenu, self.COLONNES, on_select=self._on_select)
         self.tableau.pack(fill="both", expand=True)
         self._maj_boutons()
 
@@ -133,7 +137,9 @@ class CoureursTab(BaseTab):
         self._vars["nom"].set(coureur.nom)
         self._vars["prenom"].set(coureur.prenom)
         self._vars["sexe"].set(coureur.sexe)
-        self._vars["naissance"].set(coureur.date_naissance.isoformat() if coureur.date_naissance else "")
+        self._vars["naissance"].set(
+            coureur.date_naissance.isoformat() if coureur.date_naissance else ""
+        )
         self._vars["email"].set(coureur.email)
         self._maj_boutons()
 

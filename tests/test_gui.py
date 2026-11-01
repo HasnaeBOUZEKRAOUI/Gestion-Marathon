@@ -9,7 +9,7 @@ try:
     import tkinter
 
     from gestion_marathon.ui.gui import MainWindow
-    from gestion_marathon.ui.gui import base_tab
+    from gestion_marathon.ui.gui import base_page
 
     _racine = tkinter.Tk()
     _racine.destroy()
@@ -24,14 +24,13 @@ class TestInterface(unittest.TestCase):
         self.app = Application(":memory:")
         self.fenetre = MainWindow(self.app)
         self.fenetre.update()
-        self.coureurs, self.marathons, self.participations, self.classement, self.historique = (
-            self.fenetre._onglets
-        )
+        (self.dashboard, self.coureurs, self.marathons, self.participations,
+         self.classement, self.historique) = self.fenetre._pages
         # Les boîtes de dialogue bloqueraient le test : on les remplace.
         patchs = [
-            mock.patch.object(base_tab.messagebox, "showwarning"),
-            mock.patch.object(base_tab.messagebox, "showerror"),
-            mock.patch.object(base_tab.messagebox, "askyesno", return_value=True),
+            mock.patch.object(base_page.messagebox, "showwarning"),
+            mock.patch.object(base_page.messagebox, "showerror"),
+            mock.patch.object(base_page.messagebox, "askyesno", return_value=True),
         ]
         self.avertissement, self.erreur, _ = (p.start() for p in patchs)
         for p in patchs:
@@ -105,11 +104,28 @@ class TestInterface(unittest.TestCase):
         self.erreur.assert_not_called()
         self.avertissement.assert_not_called()
 
-    def test_demo_et_changement_d_onglet(self):
+    def test_demo_et_navigation_entre_pages(self):
         self.fenetre.charger_demo()
         self.assertEqual(self.coureurs.tableau.effectif(), 10)
-        for onglet in self.fenetre.notebook.tabs():
-            self.fenetre.notebook.select(onglet)
+        for index in range(len(self.fenetre._pages)):
+            self.fenetre.afficher(index)
             self.fenetre.update()
+            self.assertEqual(self.fenetre._var_titre.get(), self.fenetre._pages[index].TITRE)
         self.assertGreater(self.classement.tableau.effectif(), 0)
         self.erreur.assert_not_called()
+
+    def test_tableau_de_bord(self):
+        vide = self.dashboard.tuiles["coureurs"]._valeur.get()
+        self.assertEqual(vide, "0")
+        self.fenetre.charger_demo()
+        self.assertEqual(self.dashboard.tuiles["coureurs"]._valeur.get(), "10")
+        self.assertEqual(self.dashboard.tuiles["marathons"]._valeur.get(), "2")
+        self.assertEqual(self.dashboard.tuiles["termines"]._valeur.get(), "6")
+        self.assertEqual(self.dashboard._podium[0]["temps"].get(), "02:58:09")
+        self.assertEqual(self.dashboard._podium[0]["rang"].get(), "1er")
+
+    def test_les_tuiles_du_classement_se_remplissent(self):
+        self.fenetre.charger_demo()
+        self.fenetre.afficher(4)
+        self.assertEqual(self.classement.tuiles["termines"]._valeur.get(), "6")
+        self.assertEqual(self.classement.tuiles["meilleur"]._valeur.get(), "02:58:09")
