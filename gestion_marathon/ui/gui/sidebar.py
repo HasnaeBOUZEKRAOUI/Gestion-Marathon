@@ -78,7 +78,7 @@ class BarreLaterale(tk.Frame):
         # Marque
         marque = tk.Frame(self, background=C["sb_fond"])
         marque.pack(fill="x", padx=22, pady=(26, 22))
-        tk.Label(marque, text="Marathon", font=polices["marque"], anchor="w",
+        tk.Label(marque, text="Runtrack", font=polices["marque"], anchor="w",
                  background=C["sb_fond"], foreground=C["sb_texte_actif"]).pack(fill="x")
         tk.Label(marque, text="Gestion des courses", font=polices["petit"], anchor="w",
                  background=C["sb_fond"], foreground=C["sb_discret"]).pack(fill="x")
