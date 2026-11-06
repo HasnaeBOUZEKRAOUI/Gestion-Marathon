@@ -72,11 +72,4 @@ email unique, dossard unique par marathon, un coureur ne s'inscrit qu'une fois p
 et cohérence statut/temps (un temps n'existe que pour le statut « Terminé »).
 Un coureur ou un marathon ayant des participations ne peut pas être supprimé.
 
-## Tests
 
-```bash
-python -m unittest discover -s tests -t .
-```
-
-Les tests de l'interface sont ignorés automatiquement s'il n'y a pas de Tkinter ou d'affichage
-(sous Linux sans écran : `xvfb-run -a python -m unittest discover -s tests -t .`).
